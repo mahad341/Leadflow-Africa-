@@ -1,0 +1,6 @@
+{
+  "name": "LeadFlow Africa",
+  "description": "AI-powered WhatsApp-first CRM and Sales Automation Operating System for African SMEs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. CATCH-ALL DENY
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. PRIMITIVES & HELPERS
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function userId() {
+      return request.auth.uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // AUTH SOURCE OF TRUTH: Get the user's profile to check organization membership
+    function getUserProfile(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function userOrg() {
+      return getUserProfile(userId()).organizationId;
+    }
+
+    function userRole() {
+      return getUserProfile(userId()).role;
+    }
+
+    function isMember(orgId) {
+      return isSignedIn() && userOrg() == orgId;
+    }
+
+    function isAdmin(orgId) {
+      return isMember(orgId) && userRole() == 'admin';
+    }
+
+    // 3. VALIDATION HELPERS
+    function isValidUser(data) {
+      return data.uid == userId() 
+        && data.email is string 
+        && data.role in ['admin', 'agent', 'viewer'] 
+        && data.organizationId is string;
+    }
+
+    function isValidLead(data) {
+      return data.customerId is string 
+        && data.organizationId == userOrg()
+        && data.stage in ['new', 'contacted', 'interested', 'negotiation', 'paid', 'closed', 'lost']
+        && data.score is int
+        && data.createdAt == request.time;
+    }
+
+    // 4. MATCH BLOCKS
+    
+    // Users Profile
+    match /users/{uid} {
+      allow get: if isSignedIn() && (userId() == uid || getUserProfile(userId()).organizationId == getUserProfile(uid).organizationId);
+      allow create: if isSignedIn() && userId() == uid && isValidUser(incoming());
+      allow update: if isSignedIn() && userId() == uid && isValidUser(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email']);
+    }
+
+    // Organizations
+    match /organizations/{orgId} {
+      allow get: if isMember(orgId);
+      allow update: if isAdmin(orgId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'industry']);
+    }
+
+    // Multi-tenant resources
+    match /organizations/{orgId}/customers/{customerId} {
+      allow read: if isMember(orgId);
+      allow write: if isMember(orgId);
+    }
+
+    match /organizations/{orgId}/leads/{leadId} {
+      allow read: if isMember(orgId);
+      allow create: if isMember(orgId) && isValidLead(incoming());
+      allow update: if isMember(orgId) && (
+        // Standard updates
+        incoming().diff(existing()).affectedKeys().hasAny(['stage', 'score', 'assignedTo', 'aiSummary', 'lastActivityAt'])
+      );
+    }
+
+    match /organizations/{orgId}/conversations/{convId} {
+      allow read: if isMember(orgId);
+      allow write: if isMember(orgId);
+
+      match /messages/{messageId} {
+        allow read: if isMember(orgId);
+        allow create: if isMember(orgId) && (incoming().senderId == userId() || incoming().senderType == 'customer');
+      }
+    }
+
+    match /organizations/{orgId}/automations/{autoId} {
+      allow read: if isMember(orgId);
+      allow write: if isAdmin(orgId);
+    }
+
+    match /organizations/{orgId}/payments/{payId} {
+      allow read: if isMember(orgId);
+      allow create: if isMember(orgId);
+    }
+  }
+}

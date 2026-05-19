@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "Organization": {
+      "title": "Organization",
+      "description": "A business using LeadFlow Africa",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "industry": { "type": "string" },
+        "subscriptionPlan": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+        "whatsappConfig": {
+          "type": "object",
+          "properties": {
+            "phoneNumberId": { "type": "string" },
+            "accessToken": { "type": "string" },
+            "verifyToken": { "type": "string" }
+          }
+        },
+        "zirzirConfig": {
+          "type": "object",
+          "properties": {
+            "publicKey": { "type": "string" },
+            "secretKey": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "An agent or admin within an organization",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "agent", "viewer"] },
+        "organizationId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "organizationId"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "A lead or existing customer contacting via WhatsApp",
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string" },
+        "name": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phone", "organizationId"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Sales opportunity tracking",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "stage": { "type": "string", "enum": ["new", "contacted", "interested", "negotiation", "paid", "closed", "lost"] },
+        "score": { "type": "integer" },
+        "value": { "type": "number" },
+        "currency": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "aiSummary": { "type": "string" },
+        "lastActivityAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "organizationId", "stage"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A single WhatsApp message",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string" },
+        "senderType": { "type": "string", "enum": ["customer", "agent", "system"] },
+        "senderId": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "image", "document", "audio", "location"] },
+        "waId": { "type": "string" },
+        "status": { "type": "string", "enum": ["sent", "delivered", "read", "failed"] },
+        "isAiGenerated": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["content", "senderType", "createdAt"]
+    },
+    "Automation": {
+      "title": "Automation",
+      "description": "Rule-based actions",
+      "type": "object",
+      "properties": {
+        "organizationId": { "type": "string" },
+        "name": { "type": "string" },
+        "trigger": { "type": "string" },
+        "condition": { "type": "string" },
+        "action": { "type": "string" },
+        "config": { "type": "object" },
+        "active": { "type": "boolean" }
+      }
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Transaction details",
+      "type": "object",
+      "properties": {
+        "organizationId": { "type": "string" },
+        "leadId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "success", "failed"] },
+        "provider": { "type": "string" },
+        "reference": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/organizations/{orgId}": { "schema": "Organization", "description": "Org details" },
+    "/users/{userId}": { "schema": "User", "description": "Global user profile" },
+    "/organizations/{orgId}/customers/{customerId}": { "schema": "Customer", "description": "Customers list" },
+    "/organizations/{orgId}/leads/{leadId}": { "schema": "Lead", "description": "Leads list" },
+    "/organizations/{orgId}/conversations/{convId}": { "schema": "object", "description": "Conversation metadata" },
+    "/organizations/{orgId}/conversations/{convId}/messages/{msgId}": { "schema": "Message", "description": "Messages subcollection" },
+    "/organizations/{orgId}/automations/{autoId}": { "schema": "Automation", "description": "Rules" },
+    "/organizations/{orgId}/payments/{payId}": { "schema": "Payment", "description": "Transactions" }
+  }
+}
